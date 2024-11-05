@@ -167,7 +167,6 @@ homebrew.casks = [
 When `auto_commit` is enabled, nixp will:
 1. Stage modified package files
 2. Create a commit with your configured message
-3. Push to remote if `auto_push` is enabled
 
 ## Command Execution
 After package operations, nixp will execute the configured commands (install_command, uninstall_command, or update_command) in the directory containing your package files. Command output is displayed in real-time.
