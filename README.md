@@ -19,7 +19,7 @@ Add nixp to your system configuration:
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    nixp.url = "github:yourusername/nixp";
+    nixp.url = "github:frostplexx/nixp";
   };
 
   outputs = { self, nixpkgs, nixp, ... }: {
