@@ -1,5 +1,5 @@
-# nixp
-A unified package manager for Nix and Homebrew, designed to help you manage your system packages declaratively across both Linux and macOS.
+# yuji
+A meta pakcage manager for Nix and Homebrew, designed to help you manage your system packages declaratively across both Linux and macOS.
 
 ## Features
 - 🔍 Search and install packages from both Nixpkgs and Homebrew
@@ -13,13 +13,13 @@ A unified package manager for Nix and Homebrew, designed to help you manage your
 ## Installation
 
 ### Using Nix Flakes
-Add nixp to your NixOS or nix-darwin configuration:
+Add yuki to your system configuration:
 
 ```nix
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    nixp.url = "github:yourusername/nixp";
+    yuki.url = "github:frostplexx/yuki";
   };
 
   outputs = { self, nixpkgs, nixp, ... }: let
@@ -31,7 +31,6 @@ Add nixp to your NixOS or nix-darwin configuration:
       modules = [{
         environment.systemPackages = [ nixp.packages.${system}.default ];
       }];
-    };
 
     # For Darwin systems
     darwinConfigurations.yourmac = darwin.lib.darwinSystem {
@@ -39,6 +38,7 @@ Add nixp to your NixOS or nix-darwin configuration:
       modules = [{
         environment.systemPackages = [ nixp.packages.${system}.default ];
       }];
+      # ...
     };
   };
 }
@@ -46,10 +46,13 @@ Add nixp to your NixOS or nix-darwin configuration:
 
 Or install directly using `nix profile`:
 ```bash
-nix profile install github:yourusername/nixp
+nix profile install github:yourusername/yuki
 ```
 
-### Prerequisites
+### Using Cargo
+```bash
+cargo install yuki
+```
 
 - Nix package manager with flakes enabled
 - Git
@@ -124,8 +127,8 @@ The flake provides:
 ### Building from source
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/nixp.git
-cd nixp
+git clone https://github.com/yourusername/yuki.git
+cd yuki
 
 # Enter development shell
 nix develop
@@ -141,9 +144,9 @@ nix profile install .
 ```
 
 ## Configuration
-nixp uses a simple configuration file that can be placed in either:
+yuki uses a simple configuration file that can be placed in either:
 - `~/.nixprc`
-- `~/.config/nixp/config.conf`
+- `~/.config/yuki/config.conf`
 
 Example configuration:
 ```conf
@@ -173,36 +176,36 @@ update_command "make update"
 
 ### Search for a package
 ```bash
-nixp search neovim
+yuki search neovim
 ```
 
 ### Install a package
 ```bash
-nixp install neovim
+yuki install neovim
 ```
 
 ### List installed packages
 ```bash
-nixp list
+yuki list
 ```
 
 ### Uninstall a package
 ```bash
-nixp uninstall neovim
+yuki uninstall neovim
 ```
 
 ### Update all packages
 ```bash
-nixp update
+yuki update
 ```
 
 ### Check system configuration
 ```bash
-nixp doctor
+yuki doctor
 ```
 
 ## File Structure
-nixp expects your Nix configuration files to contain certain attributes:
+yuki expects your Nix configuration files to contain certain attributes:
 
 For Nix packages:
 ```nix
@@ -223,19 +226,19 @@ homebrew.casks = [
 ```
 
 ## Git Integration
-When `auto_commit` is enabled, nixp will:
+When `auto_commit` is enabled, yuki will:
 1. Stage modified package files
 2. Create a commit with your configured message
 
 ## Command Execution
-After package operations, nixp will execute the configured commands (install_command, uninstall_command, or update_command) in the directory containing your package files. Command output is displayed in real-time.
+After package operations, yuki will execute the configured commands (install_command, uninstall_command, or update_command) in the directory containing your package files. Command output is displayed in real-time.
 
 ## Troubleshooting
 
 ### Run the doctor command
 Check your system configuration:
 ```bash
-nixp doctor
+yuki doctor
 ```
 
 This will verify:

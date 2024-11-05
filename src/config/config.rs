@@ -65,18 +65,18 @@ impl Config {
     }
 
     pub fn get_config_path() -> Result<PathBuf> {
-        // Try ~/.nixp first
+        // Try ~/.yukirc first
         if let Some(home) = dirs::home_dir() {
-            let nixprc = home.join(".nixprc");
-            if nixprc.exists() {
-                return Ok(nixprc);
+            let yukirc = home.join(".yukirc");
+            if yukirc.exists() {
+                return Ok(yukirc);
             }
         }
-        // Try ~/.config/nixp/config.conf
+        // Try ~/.config/yuki/config.conf
         if let Some(config_dir) = dirs::config_dir() {
-            let nixp_config = config_dir.join("nixp");
-            fs::create_dir_all(&nixp_config)?;
-            return Ok(nixp_config.join("config.conf"));
+            let yuki_config = config_dir.join("yuki");
+            fs::create_dir_all(&yuki_config)?;
+            return Ok(yuki_config.join("config.conf"));
         }
         Err(anyhow::anyhow!("Could not determine config path"))
     }

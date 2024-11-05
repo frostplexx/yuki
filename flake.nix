@@ -1,5 +1,5 @@
 {
-  description = "nixp - A unified package manager for Nix and Homebrew";
+  description = "yuki - A meta package manager for Nix and Homebrew";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -53,14 +53,14 @@
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
         # The package itself
-        nixp = craneLib.buildPackage (commonArgs // {
+        yuki = craneLib.buildPackage (commonArgs // {
           inherit cargoArtifacts;
         });
 
       in {
         checks = {
           # Build the package
-          inherit nixp;
+          inherit yuki;
 
           # Run clippy
           clippy = craneLib.cargoClippy (commonArgs // {
@@ -74,14 +74,14 @@
           });
         };
 
-        packages.default = nixp;
+        packages.default = yuki;
 
         apps.default = flake-utils.lib.mkApp {
-          drv = nixp;
+          drv = yuki;
         };
 
         devShells.default = pkgs.mkShell {
-          inputsFrom = [ nixp ];
+          inputsFrom = [ yuki ];
           buildInputs = with pkgs; [
             # Development tools
             rustToolchain
