@@ -81,9 +81,7 @@
           environment.systemPackages = let
             system = pkgs.system;
           in [
-            (self.packages.${system}.default.override {
-              yukiConfig = config.programs.yuki.settings;
-            })
+            (pkgs.callPackage self.packages.${system}.default { inherit (config.programs.yuki) settings; })
           ];
         };
       };
@@ -94,24 +92,6 @@
         pkgs = import nixpkgs {
           inherit system overlays;
         };
-        
-        # Yuki configuration defaults
-        yukiConfigDefault = {
-          linux_packages_path = "~/dotfiles/hosts/nixos/apps.nix";
-          darwin_packages_path = "~/dotfiles/hosts/darwin/apps.nix";
-          homebrew_packages_path = "~/dotfiles/hosts/darwin/apps.nix";
-          auto_commit = true;
-          auto_push = false;
-          uninstall_message = "removed <package>";
-          install_message = "installed <package>";
-          install_command = "make";
-          uninstall_command = "make";
-          update_command = "make update";
-        };
-        
-        # Setup crane with stable rust
-        rustToolchain = pkgs.rust-bin.stable.latest.default;
-        craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
         
         # Common dependencies for building and development
         commonDeps = with pkgs; [
@@ -126,56 +106,62 @@
         
         src = craneLib.cleanCargoSource ./.;
         
-        # Function to create build args with specific config
-        mkBuildArgs = yukiConfig: {
+        # Setup crane with stable rust
+        rustToolchain = pkgs.rust-bin.stable.latest.default;
+        craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
+
+        # Create a derivation for Yuki
+        mkYuki = { settings ? {} }: craneLib.buildPackage {
           inherit src;
+          inherit settings;
+          
           buildInputs = commonDeps;
           
           # Pass configuration as environment variables
-          YUKI_LINUX_PACKAGES_PATH = yukiConfig.linux_packages_path;
-          YUKI_DARWIN_PACKAGES_PATH = yukiConfig.darwin_packages_path;
-          YUKI_HOMEBREW_PACKAGES_PATH = yukiConfig.homebrew_packages_path;
-          YUKI_AUTO_COMMIT = toString yukiConfig.auto_commit;
-          YUKI_AUTO_PUSH = toString yukiConfig.auto_push;
-          YUKI_UNINSTALL_MESSAGE = yukiConfig.uninstall_message;
-          YUKI_INSTALL_MESSAGE = yukiConfig.install_message;
-          YUKI_INSTALL_COMMAND = yukiConfig.install_command;
-          YUKI_UNINSTALL_COMMAND = yukiConfig.uninstall_command;
-          YUKI_UPDATE_COMMAND = yukiConfig.update_command;
+          YUKI_LINUX_PACKAGES_PATH = settings.linux_packages_path or "~/dotfiles/hosts/nixos/apps.nix";
+          YUKI_DARWIN_PACKAGES_PATH = settings.darwin_packages_path or "~/dotfiles/hosts/darwin/apps.nix";
+          YUKI_HOMEBREW_PACKAGES_PATH = settings.homebrew_packages_path or "~/dotfiles/hosts/darwin/apps.nix";
+          YUKI_AUTO_COMMIT = toString (settings.auto_commit or true);
+          YUKI_AUTO_PUSH = toString (settings.auto_push or false);
+          YUKI_UNINSTALL_MESSAGE = settings.uninstall_message or "removed <package>";
+          YUKI_INSTALL_MESSAGE = settings.install_message or "installed <package>";
+          YUKI_INSTALL_COMMAND = settings.install_command or "make";
+          YUKI_UNINSTALL_COMMAND = settings.uninstall_command or "make";
+          YUKI_UPDATE_COMMAND = settings.update_command or "make update";
+          
+          cargoArtifacts = craneLib.buildDepsOnly {
+            inherit src;
+            buildInputs = commonDeps;
+          };
         };
-        
-        # Build dependencies with default config
-        cargoArtifacts = craneLib.buildDepsOnly (mkBuildArgs yukiConfigDefault);
-        
-        # Function to create the package with specific config
-        mkYuki = yukiConfig: craneLib.buildPackage ((mkBuildArgs yukiConfig) // {
-          inherit cargoArtifacts;
-        });
-        
-        # Default package with ability to override config
-        defaultYuki = mkYuki yukiConfigDefault;
       in {
+        packages.default = pkgs.callPackage ({ settings ? {} }: mkYuki { inherit settings; }) {};
+
         checks = {
-          inherit defaultYuki;
-          clippy = craneLib.cargoClippy ((mkBuildArgs yukiConfigDefault) // {
-            inherit cargoArtifacts;
+          inherit (packages) default;
+          clippy = craneLib.cargoClippy {
+            inherit src;
+            cargoArtifacts = craneLib.buildDepsOnly {
+              inherit src;
+              buildInputs = commonDeps;
+            };
             cargoClippyExtraArgs = "--all-targets -- --deny warnings";
-          });
-          test = craneLib.cargoTest ((mkBuildArgs yukiConfigDefault) // {
-            inherit cargoArtifacts;
-          });
-        };
-        
-        packages = {
-          default = defaultYuki;
+          };
+          test = craneLib.cargoTest {
+            inherit src;
+            cargoArtifacts = craneLib.buildDepsOnly {
+              inherit src;
+              buildInputs = commonDeps;
+            };
+          };
         };
         
         apps.default = flake-utils.lib.mkApp {
-          drv = defaultYuki;
+          drv = packages.default;
         };
         
         devShells.default = pkgs.mkShell {
-          inputsFrom = [ defaultYuki ];
+          inputsFrom = [ packages.default ];
           buildInputs = with pkgs; [
             rustToolchain
             rust-analyzer
@@ -185,7 +171,6 @@
         };
       }
     ) // {
-      # Export the module for use in NixOS and nix-darwin
       nixosModules.default = yukiModule;
       darwinModules.default = yukiModule;
     };
