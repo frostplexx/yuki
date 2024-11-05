@@ -12,27 +12,33 @@ A unified package manager for Nix and Homebrew, designed to help you manage your
 
 ## Installation
 
-### Using Nix Flakes (recommended)
-Add nixp to your system configuration:
+### Using Nix Flakes
+Add nixp to your NixOS or nix-darwin configuration:
 
 ```nix
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    nixp.url = "github:frostplexx/nixp";
+    nixp.url = "github:yourusername/nixp";
   };
 
-  outputs = { self, nixpkgs, nixp, ... }: {
+  outputs = { self, nixpkgs, nixp, ... }: let
+    system = "x86_64-linux"; # or "x86_64-darwin" for macOS
+  in {
     # For NixOS systems
     nixosConfigurations.yourhostname = nixpkgs.lib.nixosSystem {
-      # ...
-      environment.systemPackages = [ nixp.packages.${system}.default ];
+      inherit system;
+      modules = [{
+        environment.systemPackages = [ nixp.packages.${system}.default ];
+      }];
     };
 
     # For Darwin systems
     darwinConfigurations.yourmac = darwin.lib.darwinSystem {
-      # ...
-      environment.systemPackages = [ nixp.packages.${system}.default ];
+      inherit system;
+      modules = [{
+        environment.systemPackages = [ nixp.packages.${system}.default ];
+      }];
     };
   };
 }
@@ -43,22 +49,75 @@ Or install directly using `nix profile`:
 nix profile install github:yourusername/nixp
 ```
 
-### Using Cargo
-```bash
-cargo install nixp
-```
+### Prerequisites
 
-## Prerequisites
 - Nix package manager with flakes enabled
 - Git
-- Make
+- OpenSSL
+- pkg-config
 - Homebrew (for macOS only)
 
-### Enabling Flakes
-Add the following to your `~/.config/nix/nix.conf` or `/etc/nix/nix.conf`:
+To enable flakes, add this to your `~/.config/nix/nix.conf` or `/etc/nix/nix.conf`:
 ```conf
 experimental-features = nix-command flakes
 ```
+
+## Development
+
+### Building from source
+
+The project uses a Nix flake setup with the following development tools:
+- Rust (stable toolchain)
+- rust-analyzer
+- cargo-watch
+- cargo-edit
+- Common build dependencies (pkg-config, openssl)
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/nixp.git
+cd nixp
+
+# Enter development shell (includes all dev dependencies)
+nix develop
+
+# Build the project
+nix build
+
+# Run directly
+nix run
+
+# Install to your environment
+nix profile install .
+
+# Run tests
+nix flake check
+```
+
+### Development Commands
+
+In the development shell, you can use:
+```bash
+# Watch for changes and run checks
+cargo watch -x check -x test
+
+# Run clippy lints
+cargo clippy -- --deny warnings
+
+# Run tests
+cargo test
+
+# Format code
+cargo fmt
+```
+
+### Available Nix Flake Outputs
+
+The flake provides:
+- `packages.default`: The nixp binary
+- `apps.default`: A flake app for running nixp
+- `devShells.default`: Development environment with all tools
+- `checks`: Build, clippy, and test verifications
 
 ## Development
 
