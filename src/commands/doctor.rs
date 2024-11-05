@@ -1,13 +1,16 @@
 use anyhow::{Context, Result};
 use colored::*;
-use std::{fs, process::Command};
-use crate::{commands::search::search_package, config::Config};
+use std::{fs, process::Command, os::unix::fs::MetadataExt};
+use crate::config::Config;
 
 pub fn check_doctor(config: &Config) -> Result<()> {
     println!("{}", "==> Checking configuration...".bright_blue());
     
-    // Check config file paths
+    // Check config file paths and permissions
     check_config_paths(config)?;
+    
+    // Check config file contents
+    check_config_contents(config)?;
     
     // Check required commands
     check_commands()?;
@@ -17,22 +20,20 @@ pub fn check_doctor(config: &Config) -> Result<()> {
     
     // Test search functionality
     check_search(config)?;
-    
-    // Test package list parsing
-    check_package_lists(config)?;
 
     println!("\n{}", "Everything looks good! 🎉".green());
     Ok(())
 }
 
 fn check_config_paths(config: &Config) -> Result<()> {
-    println!("\n{}", "Checking configuration paths:".bright_blue());
+    println!("\n{}", "Checking configuration paths and permissions:".bright_blue());
     
     // Check Linux packages path
     let linux_path = config.get_expanded_path(&config.linux_packages_path)?;
     print!("Linux packages path ({}): ", linux_path.display());
     if linux_path.exists() {
         println!("{}", "✓".green());
+        check_file_permissions(&linux_path, "Linux packages");
     } else {
         println!("{}", "⨯ File not found".red());
     }
@@ -42,6 +43,7 @@ fn check_config_paths(config: &Config) -> Result<()> {
     print!("Darwin packages path ({}): ", darwin_path.display());
     if darwin_path.exists() {
         println!("{}", "✓".green());
+        check_file_permissions(&darwin_path, "Darwin packages");
     } else {
         println!("{}", "⨯ File not found".red());
     }
@@ -51,12 +53,107 @@ fn check_config_paths(config: &Config) -> Result<()> {
     print!("Homebrew packages path ({}): ", homebrew_path.display());
     if homebrew_path.exists() {
         println!("{}", "✓".green());
+        check_file_permissions(&homebrew_path, "Homebrew packages");
     } else {
         println!("{}", "⨯ File not found".red());
     }
 
     Ok(())
 }
+
+fn check_file_permissions(path: &std::path::Path, file_type: &str) {
+    if let Ok(metadata) = path.metadata() {
+        let mode = metadata.mode();
+        print!("{} permissions: ", file_type);
+        
+        let readable = mode & 0o444 != 0;
+        let writable = mode & 0o222 != 0;
+        
+        if readable && writable {
+            println!("{}", "✓ (read/write)".green());
+        } else if readable {
+            println!("{}", "! (read-only)".yellow());
+        } else if writable {
+            println!("{}", "! (write-only)".yellow());
+        } else {
+            println!("{}", "⨯ (no access)".red());
+        }
+    } else {
+        println!("{}", "⨯ Unable to check permissions".red());
+    }
+}
+
+fn check_config_contents(config: &Config) -> Result<()> {
+    println!("\n{}", "Checking configuration contents:".bright_blue());
+    
+    // Check Nix packages content
+    let packages_path = if cfg!(target_os = "macos") {
+        config.get_expanded_path(&config.darwin_packages_path)?
+    } else {
+        config.get_expanded_path(&config.linux_packages_path)?
+    };
+
+    print!("Validating systemPackages array: ");
+    match fs::read_to_string(&packages_path) {
+        Ok(content) => {
+            match nix_editor::read::getarrvals(&content, "environment.systemPackages") {
+                Ok(packages) => {
+                    println!("{} ({} packages found)", "✓".green(), packages.len());
+                },
+                Err(e) => {
+                    println!("{} ({})", "⨯ Array not found or invalid".red(), e);
+                }
+            }
+        },
+        Err(e) => {
+            println!("{} ({})", "⨯ Failed to read file".red(), e);
+        }
+    }
+    
+    // Check Homebrew packages on macOS
+    if cfg!(target_os = "macos") {
+        let homebrew_path = config.get_expanded_path(&config.homebrew_packages_path)?;
+        
+        print!("Validating homebrew.brews array: ");
+        match fs::read_to_string(&homebrew_path) {
+            Ok(content) => {
+                match nix_editor::read::getarrvals(&content, "homebrew.brews") {
+                    Ok(packages) => {
+                        println!("{} ({} formulae found)", "✓".green(), packages.len());
+                    },
+                    Err(e) => {
+                        println!("{} ({})", "⨯ Array not found or invalid".red(), e);
+                    }
+                }
+            },
+            Err(e) => {
+                println!("{} ({})", "⨯ Failed to read file".red(), e);
+            }
+        }
+
+        print!("Validating homebrew.casks array: ");
+        match fs::read_to_string(&homebrew_path) {
+            Ok(content) => {
+                match nix_editor::read::getarrvals(&content, "homebrew.casks") {
+                    Ok(packages) => {
+                        println!("{} ({} casks found)", "✓".green(), packages.len());
+                    },
+                    Err(e) => {
+                        println!("{} ({})", "⨯ Array not found or invalid".red(), e);
+                    }
+                }
+            },
+            Err(e) => {
+                println!("{} ({})", "⨯ Failed to read file".red(), e);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+// Rest of the functions (check_commands, check_git_repo, test_nix_search, 
+// test_homebrew_search, check_search) remain unchanged
 
 fn check_commands() -> Result<()> {
     println!("\n{}", "Checking required commands:".bright_blue());
@@ -154,13 +251,11 @@ fn test_homebrew_search(query: &str) -> Result<bool> {
         .args(["search", query])
         .output()
         .context("Failed to execute brew search")?;
-
     Ok(output.status.success())
 }
 
 fn check_search(_config: &Config) -> Result<()> {
     println!("\n{}", "Testing search functionality:".bright_blue());
-    
     print!("Testing Nix search: ");
     match test_nix_search("git") {
         Ok(true) => {
@@ -192,70 +287,3 @@ fn check_search(_config: &Config) -> Result<()> {
     Ok(())
 }
 
-fn check_package_lists(config: &Config) -> Result<()> {
-    println!("\n{}", "Checking package lists:".bright_blue());
-    
-    // Check Nix packages
-    let packages_path = if cfg!(target_os = "macos") {
-        config.get_expanded_path(&config.darwin_packages_path)?
-    } else {
-        config.get_expanded_path(&config.linux_packages_path)?
-    };
-
-    print!("Reading Nix packages: ");
-    match fs::read_to_string(&packages_path) {
-        Ok(content) => {
-            match nix_editor::read::getarrvals(&content, "environment.systemPackages") {
-                Ok(packages) => {
-                    println!("{} ({} packages found)", "✓".green(), packages.len());
-                },
-                Err(e) => {
-                    println!("{} ({})", "⨯ Failed to parse".red(), e);
-                }
-            }
-        },
-        Err(e) => {
-            println!("{} ({})", "⨯ Failed to read file".red(), e);
-        }
-    }
-    
-    // Check Homebrew packages on macOS
-    if cfg!(target_os = "macos") {
-        let homebrew_path = config.get_expanded_path(&config.homebrew_packages_path)?;
-        print!("Reading Homebrew formulae: ");
-        match fs::read_to_string(&homebrew_path) {
-            Ok(content) => {
-                match nix_editor::read::getarrvals(&content, "homebrew.brews") {
-                    Ok(packages) => {
-                        println!("{} ({} formulae found)", "✓".green(), packages.len());
-                    },
-                    Err(e) => {
-                        println!("{} ({})", "⨯ Failed to parse".red(), e);
-                    }
-                }
-            },
-            Err(e) => {
-                println!("{} ({})", "⨯ Failed to read file".red(), e);
-            }
-        }
-
-        print!("Reading Homebrew casks: ");
-        match fs::read_to_string(&homebrew_path) {
-            Ok(content) => {
-                match nix_editor::read::getarrvals(&content, "homebrew.casks") {
-                    Ok(packages) => {
-                        println!("{} ({} casks found)", "✓".green(), packages.len());
-                    },
-                    Err(e) => {
-                        println!("{} ({})", "⨯ Failed to parse".red(), e);
-                    }
-                }
-            },
-            Err(e) => {
-                println!("{} ({})", "⨯ Failed to read file".red(), e);
-            }
-        }
-    }
-
-    Ok(())
-}
