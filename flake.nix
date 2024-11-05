@@ -78,10 +78,8 @@
         };
 
         config = mkIf config.programs.yuki.enable {
-          environment.systemPackages = let
-            system = pkgs.system;
-          in [
-            (pkgs.callPackage self.packages.${system}.default { inherit (config.programs.yuki) settings; })
+          environment.systemPackages = [
+            (self.packages.${pkgs.system}.default)
           ];
         };
       };
@@ -110,37 +108,34 @@
         rustToolchain = pkgs.rust-bin.stable.latest.default;
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
 
-        # Create a derivation for Yuki
-        mkYuki = { settings ? {} }: craneLib.buildPackage {
+        defaultYuki = craneLib.buildPackage {
+          pname = "yuki";
           inherit src;
-          inherit settings;
           
           buildInputs = commonDeps;
           
-          # Pass configuration as environment variables
-          YUKI_LINUX_PACKAGES_PATH = settings.linux_packages_path or "~/dotfiles/hosts/nixos/apps.nix";
-          YUKI_DARWIN_PACKAGES_PATH = settings.darwin_packages_path or "~/dotfiles/hosts/darwin/apps.nix";
-          YUKI_HOMEBREW_PACKAGES_PATH = settings.homebrew_packages_path or "~/dotfiles/hosts/darwin/apps.nix";
-          YUKI_AUTO_COMMIT = toString (settings.auto_commit or true);
-          YUKI_AUTO_PUSH = toString (settings.auto_push or false);
-          YUKI_UNINSTALL_MESSAGE = settings.uninstall_message or "removed <package>";
-          YUKI_INSTALL_MESSAGE = settings.install_message or "installed <package>";
-          YUKI_INSTALL_COMMAND = settings.install_command or "make";
-          YUKI_UNINSTALL_COMMAND = settings.uninstall_command or "make";
-          YUKI_UPDATE_COMMAND = settings.update_command or "make update";
+          # Environment variables with default values
+          YUKI_LINUX_PACKAGES_PATH = "~/dotfiles/hosts/nixos/apps.nix";
+          YUKI_DARWIN_PACKAGES_PATH = "~/dotfiles/hosts/darwin/apps.nix";
+          YUKI_HOMEBREW_PACKAGES_PATH = "~/dotfiles/hosts/darwin/apps.nix";
+          YUKI_AUTO_COMMIT = "true";
+          YUKI_AUTO_PUSH = "false";
+          YUKI_UNINSTALL_MESSAGE = "removed <package>";
+          YUKI_INSTALL_MESSAGE = "installed <package>";
+          YUKI_INSTALL_COMMAND = "make";
+          YUKI_UNINSTALL_COMMAND = "make";
+          YUKI_UPDATE_COMMAND = "make update";
           
           cargoArtifacts = craneLib.buildDepsOnly {
             inherit src;
             buildInputs = commonDeps;
           };
         };
-
-        defaultPackage = pkgs.callPackage ({ settings ? {} }: mkYuki { inherit settings; }) {};
       in {
-        packages.default = defaultPackage;
+        packages.default = defaultYuki;
 
         checks = {
-          inherit defaultPackage;
+          inherit defaultYuki;
           clippy = craneLib.cargoClippy {
             inherit src;
             cargoArtifacts = craneLib.buildDepsOnly {
@@ -159,11 +154,11 @@
         };
         
         apps.default = flake-utils.lib.mkApp {
-          drv = defaultPackage;
+          drv = defaultYuki;
         };
         
         devShells.default = pkgs.mkShell {
-          inputsFrom = [ defaultPackage ];  # Changed from packages.default
+          inputsFrom = [ defaultYuki ];
           buildInputs = with pkgs; [
             rustToolchain
             rust-analyzer
