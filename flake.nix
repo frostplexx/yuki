@@ -134,11 +134,13 @@
             buildInputs = commonDeps;
           };
         };
+
+        defaultPackage = pkgs.callPackage ({ settings ? {} }: mkYuki { inherit settings; }) {};
       in {
-        packages.default = pkgs.callPackage ({ settings ? {} }: mkYuki { inherit settings; }) {};
+        packages.default = defaultPackage;
 
         checks = {
-          inherit (packages) default;
+          inherit defaultPackage;
           clippy = craneLib.cargoClippy {
             inherit src;
             cargoArtifacts = craneLib.buildDepsOnly {
@@ -157,11 +159,11 @@
         };
         
         apps.default = flake-utils.lib.mkApp {
-          drv = packages.default;
+          drv = defaultPackage;
         };
         
         devShells.default = pkgs.mkShell {
-          inputsFrom = [ packages.default ];
+          inputsFrom = [ defaultPackage ];  # Changed from packages.default
           buildInputs = with pkgs; [
             rustToolchain
             rust-analyzer
