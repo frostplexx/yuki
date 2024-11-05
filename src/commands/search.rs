@@ -58,12 +58,12 @@ pub(crate) fn search_package(config: &Config, query: &str) -> Result<Option<Pack
     // Search Homebrew on macOS
     if cfg!(target_os = "macos") {
         // Search formulae
-        if let Ok(mut brew_packages) = search_homebrew(query, false) {
+        if let Ok(brew_packages) = search_homebrew(query, false) {
             packages.extend(brew_packages);
         }
         
         // Search casks
-        if let Ok(mut brew_casks) = search_homebrew(query, true) {
+        if let Ok(brew_casks) = search_homebrew(query, true) {
             packages.extend(brew_casks);
         }
     }

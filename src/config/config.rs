@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::path::{PathBuf};
-use anyhow::{Result, Context};
+use std::path::PathBuf;
+use anyhow::Result;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
