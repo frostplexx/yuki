@@ -3,6 +3,8 @@ use colored::*;
 use nix_editor::{write, read};
 use std::fs;
 use crate::config::Config;
+use std::process::{Command, Stdio};
+use std::io::{BufRead, BufReader};
 
 use super::search::{search_package, PackageType};
 
@@ -153,32 +155,32 @@ fn install_homebrew_package(config: &Config, package: &str, is_cask: bool) -> Re
     Ok(())
 }
 
+
 fn handle_post_install(config: &Config, package: &str) -> Result<()> {
     println!("✨ Successfully added {}", package.green());
     
-    let config_dir = config.get_expanded_path(&config.darwin_packages_path)?
-        .parent()
-        .ok_or_else(|| anyhow::anyhow!("Could not determine config directory"))?
-        .to_path_buf();
+    // Get home directory
+    let home_dir = dirs::home_dir()
+        .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
 
     // Handle git operations if auto_commit is enabled
     if config.auto_commit {
         let commit_msg = config.install_message.replace("<package>", package);
         
-        if let Ok(_) = std::process::Command::new("git")
+        if let Ok(_) = Command::new("git")
             .args(&["add", "."])
-            .current_dir(&config_dir)
+            .current_dir(&home_dir.join("dotfiles"))
             .output() {
-            if let Ok(_) = std::process::Command::new("git")
+            if let Ok(_) = Command::new("git")
                 .args(&["commit", "-m", &commit_msg])
-                .current_dir(&config_dir)
+                .current_dir(&home_dir.join("dotfiles"))
                 .output() {
                 println!("📝 Changes committed to git");
 
                 if config.auto_push {
-                    if let Ok(_) = std::process::Command::new("git")
+                    if let Ok(_) = Command::new("git")
                         .args(&["push"])
-                        .current_dir(&config_dir)
+                        .current_dir(&home_dir.join("dotfiles"))
                         .output() {
                         println!("🚀 Changes pushed to remote");
                     }
@@ -189,14 +191,53 @@ fn handle_post_install(config: &Config, package: &str) -> Result<()> {
 
     // Run install command
     if !config.install_command.is_empty() {
-        if let Ok(_) = std::process::Command::new("sh")
-            .args(&["-c", &config.install_command])
-            .current_dir(&config_dir)
-            .output() {
-            println!("🔄 Install command executed");
+        let clean_command = config.install_command.trim();
+        println!("🔄 Running install command: {}", clean_command.bright_blue());
+        
+        // Create command with piped output
+        let mut child = Command::new("sh")
+            .args(&["-c", clean_command])
+            .current_dir(&home_dir.join("dotfiles"))
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .context("Failed to spawn command")?;
+
+        // Handle stdout in real-time
+        if let Some(stdout) = child.stdout.take() {
+            let stdout_reader = BufReader::new(stdout);
+            for line in stdout_reader.lines() {
+                if let Ok(line) = line {
+                    println!("{}", line);
+                }
+            }
+        }
+
+        // Handle stderr in real-time
+        if let Some(stderr) = child.stderr.take() {
+            let stderr_reader = BufReader::new(stderr);
+            for line in stderr_reader.lines() {
+                if let Ok(line) = line {
+                    eprintln!("{}", line.red());
+                }
+            }
+        }
+
+        // Wait for the command to complete and check status
+        match child.wait() {
+            Ok(status) => {
+                if status.success() {
+                    println!("✅ Install command completed successfully");
+                } else {
+                    return Err(anyhow::anyhow!("Install command failed with status: {}", status));
+                }
+            },
+            Err(e) => {
+                println!("❌ Failed to execute install command: {}", e.to_string().red());
+                return Err(anyhow::anyhow!("Failed to execute install command: {}", e));
+            }
         }
     }
 
     Ok(())
 }
-

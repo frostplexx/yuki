@@ -134,16 +134,58 @@ fn check_git_repo(config: &Config) -> Result<()> {
     Ok(())
 }
 
-fn check_search(config: &Config) -> Result<()> {
+// New function to test search without user interaction
+fn test_nix_search(query: &str) -> Result<bool> {
+    let output = Command::new("nix")
+        .args([
+            "--extra-experimental-features", "nix-command",
+            "--extra-experimental-features", "flakes",
+            "search", "nixpkgs", query,
+            "--json"
+        ])
+        .output()
+        .context("Failed to execute nix search")?;
+
+    Ok(output.status.success())
+}
+
+fn test_homebrew_search(query: &str) -> Result<bool> {
+    let output = Command::new("brew")
+        .args(["search", query])
+        .output()
+        .context("Failed to execute brew search")?;
+
+    Ok(output.status.success())
+}
+
+fn check_search(_config: &Config) -> Result<()> {
     println!("\n{}", "Testing search functionality:".bright_blue());
     
-    print!("Searching for a test package: ");
-    match search_package(config, "git") {
-        Ok(_) => {
+    print!("Testing Nix search: ");
+    match test_nix_search("git") {
+        Ok(true) => {
             println!("{}", "✓".green());
+        },
+        Ok(false) => {
+            println!("{}", "⨯ Search returned no results".red());
         },
         Err(e) => {
             println!("{} ({})", "⨯ Search failed".red(), e);
+        }
+    }
+
+    if cfg!(target_os = "macos") {
+        print!("Testing Homebrew search: ");
+        match test_homebrew_search("git") {
+            Ok(true) => {
+                println!("{}", "✓".green());
+            },
+            Ok(false) => {
+                println!("{}", "⨯ Search returned no results".red());
+            },
+            Err(e) => {
+                println!("{} ({})", "⨯ Search failed".red(), e);
+            }
         }
     }
     
