@@ -59,7 +59,7 @@ fn run_command(cmd: &str) -> Result<String> {
 
 fn check_dependencies() -> Result<()> {
     // Check for required dependencies
-    let dependencies = ["fzf", "jq", "git"];
+    let dependencies = ["git"];
     
     for dep in dependencies {
         if run_command(&format!("which {}", dep)).is_err() {
