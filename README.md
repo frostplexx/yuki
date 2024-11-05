@@ -1,9 +1,7 @@
 # nixp
-
 A unified package manager for Nix and Homebrew, designed to help you manage your system packages declaratively across both Linux and macOS.
 
 ## Features
-
 - 🔍 Search and install packages from both Nixpkgs and Homebrew
 - 🔄 Declarative package management using Nix configuration files
 - 🍎 Seamless integration with Homebrew on macOS (both formulae and casks)
@@ -14,19 +12,76 @@ A unified package manager for Nix and Homebrew, designed to help you manage your
 
 ## Installation
 
+### Using Nix Flakes (recommended)
+Add nixp to your system configuration:
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixp.url = "github:yourusername/nixp";
+  };
+
+  outputs = { self, nixpkgs, nixp, ... }: {
+    # For NixOS systems
+    nixosConfigurations.yourhostname = nixpkgs.lib.nixosSystem {
+      # ...
+      environment.systemPackages = [ nixp.packages.${system}.default ];
+    };
+
+    # For Darwin systems
+    darwinConfigurations.yourmac = darwin.lib.darwinSystem {
+      # ...
+      environment.systemPackages = [ nixp.packages.${system}.default ];
+    };
+  };
+}
+```
+
+Or install directly using `nix profile`:
+```bash
+nix profile install github:yourusername/nixp
+```
+
+### Using Cargo
 ```bash
 cargo install nixp
 ```
 
 ## Prerequisites
-
-- Nix package manager
+- Nix package manager with flakes enabled
 - Git
 - Make
 - Homebrew (for macOS only)
 
-## Configuration
+### Enabling Flakes
+Add the following to your `~/.config/nix/nix.conf` or `/etc/nix/nix.conf`:
+```conf
+experimental-features = nix-command flakes
+```
 
+## Development
+
+### Building from source
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/nixp.git
+cd nixp
+
+# Enter development shell
+nix develop
+
+# Build the project
+nix build
+
+# Run directly
+nix run
+
+# Install to your environment
+nix profile install .
+```
+
+## Configuration
 nixp uses a simple configuration file that can be placed in either:
 - `~/.nixprc`
 - `~/.config/nixp/config.conf`
@@ -88,7 +143,6 @@ nixp doctor
 ```
 
 ## File Structure
-
 nixp expects your Nix configuration files to contain certain attributes:
 
 For Nix packages:
@@ -110,19 +164,18 @@ homebrew.casks = [
 ```
 
 ## Git Integration
-
 When `auto_commit` is enabled, nixp will:
 1. Stage modified package files
 2. Create a commit with your configured message
 3. Push to remote if `auto_push` is enabled
 
 ## Command Execution
-
-After package operations, nixp will execute the configured commands (install_command, uninstall_command, or update_command) in the directory containing your package files.
+After package operations, nixp will execute the configured commands (install_command, uninstall_command, or update_command) in the directory containing your package files. Command output is displayed in real-time.
 
 ## Troubleshooting
 
-Run the doctor command to check your system configuration:
+### Run the doctor command
+Check your system configuration:
 ```bash
 nixp doctor
 ```
@@ -134,10 +187,18 @@ This will verify:
 - Search functionality
 - Package list parsing
 
-## Contributing
+### Common Issues
+1. **Nix Flakes not enabled**:
+   Ensure you have enabled flakes in your Nix configuration.
 
+2. **Permission Issues**:
+   Make sure your dotfiles directory is writable and git is properly configured.
+
+3. **Command Execution Fails**:
+   Verify that Make is installed and your Makefile exists in the dotfiles directory.
+
+## Contributing
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
-
 MIT
