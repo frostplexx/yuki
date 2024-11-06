@@ -29,24 +29,15 @@ fn check_config_paths(config: &Config) -> Result<()> {
     println!("\n{}", "Checking configuration paths and permissions:".bright_blue());
     
     // Check Linux packages path
-    let linux_path = config.get_expanded_path(&config.linux_packages_path)?;
-    print!("Linux packages path ({}): ", linux_path.display());
-    if linux_path.exists() {
+    let system_path = config.get_expanded_path(&config.system_packages_path)?;
+    print!("System packages path ({}): ", system_path.display());
+    if system_path.exists() {
         println!("{}", "✓".green());
-        check_file_permissions(&linux_path, "Linux packages");
+        check_file_permissions(&system_path, "System packages file");
     } else {
         println!("{}", "⨯ File not found".red());
     }
     
-    // Check Darwin packages path
-    let darwin_path = config.get_expanded_path(&config.darwin_packages_path)?;
-    print!("Darwin packages path ({}): ", darwin_path.display());
-    if darwin_path.exists() {
-        println!("{}", "✓".green());
-        check_file_permissions(&darwin_path, "Darwin packages");
-    } else {
-        println!("{}", "⨯ File not found".red());
-    }
     
     // Check Homebrew packages path
     let homebrew_path = config.get_expanded_path(&config.homebrew_packages_path)?;
@@ -87,11 +78,7 @@ fn check_config_contents(config: &Config) -> Result<()> {
     println!("\n{}", "Checking configuration contents:".bright_blue());
     
     // Check Nix packages content
-    let packages_path = if cfg!(target_os = "macos") {
-        config.get_expanded_path(&config.darwin_packages_path)?
-    } else {
-        config.get_expanded_path(&config.linux_packages_path)?
-    };
+    let packages_path = config.get_expanded_path(&config.system_packages_path)?;
 
     print!("Validating systemPackages array: ");
     match fs::read_to_string(&packages_path) {

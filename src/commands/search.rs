@@ -47,13 +47,8 @@ pub(crate) fn search_package(config: &Config, query: &str) -> Result<Option<Pack
     let mut sp = Spinner::new(Spinners::Dots, "Searching for packages...".into());
     
     // Search nixpkgs
-    let mut packages = if cfg!(target_os = "macos") {
-        search_nixpkgs(config.darwin_packages_path.as_str(), query)
-            .context("Failed to search nixpkgs for Darwin")?
-    } else {
-        search_nixpkgs(config.linux_packages_path.as_str(), query)
-            .context("Failed to search nixpkgs for Linux")?
-    };
+    let mut packages = search_nixpkgs(config.system_packages_path.as_str(), query)
+            .context("Failed to search nixpkgs for Linux")?;
 
     // Search Homebrew on macOS
     if cfg!(target_os = "macos") {

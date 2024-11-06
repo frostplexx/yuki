@@ -30,12 +30,7 @@ pub fn install_package(config: &Config, package: &str, package_type: Option<Pack
 }
 
 fn install_nix_package(config: &Config, package: &str) -> Result<()> {
-    let packages_path = if cfg!(target_os = "macos") {
-        config.get_expanded_path(&config.darwin_packages_path)?
-    } else {
-        config.get_expanded_path(&config.linux_packages_path)?
-    };
-
+    let packages_path = config.get_expanded_path(&config.system_packages_path)?;
     if !packages_path.exists() {
         return Err(anyhow::anyhow!(
             "Configuration file not found at: {}",

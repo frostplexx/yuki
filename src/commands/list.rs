@@ -26,11 +26,7 @@ pub fn clean_package_name(package: &str) -> Option<String> {
 
 pub fn list_packages(config: &Config) -> Result<()> {
     // List Nix packages
-    let packages_path = if cfg!(target_os = "macos") {
-        config.get_expanded_path(&config.darwin_packages_path)?
-    } else {
-        config.get_expanded_path(&config.linux_packages_path)?
-    };
+    let packages_path = config.get_expanded_path(&config.system_packages_path)?;
 
     let file_content = fs::read_to_string(&packages_path)
         .context("Failed to read configuration file")?;

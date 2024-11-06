@@ -37,11 +37,7 @@ pub fn uninstall_package(config: &Config, package: &str) -> Result<()> {
     let mut uninstall_options = Vec::new();
 
     // Check Nix packages
-    let nix_path = if cfg!(target_os = "macos") {
-        config.get_expanded_path(&config.darwin_packages_path)?
-    } else {
-        config.get_expanded_path(&config.linux_packages_path)?
-    };
+    let nix_path = config.get_expanded_path(&config.system_packages_path)?;
 
     if nix_path.exists() {
         let content = fs::read_to_string(&nix_path)?;
@@ -132,11 +128,7 @@ pub fn uninstall_package(config: &Config, package: &str) -> Result<()> {
 }
 
 fn uninstall_nix_package(config: &Config, package: &str) -> Result<()> {
-    let packages_path = if cfg!(target_os = "macos") {
-        config.get_expanded_path(&config.darwin_packages_path)?
-    } else {
-        config.get_expanded_path(&config.linux_packages_path)?
-    };
+    let packages_path = config.get_expanded_path(&config.system_packages_path)?;
 
     println!("🗑️  Uninstalling Nix package: {}", package.bright_blue());
     println!("📄 Using configuration file: {}", packages_path.display());
