@@ -109,14 +109,9 @@ config = mkIf config.programs.yuki.enable {
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
 
         # Create a function to build Yuki with specific settings
-mkYuki = { settings ? {} }: craneLib.buildPackage {
-  pname = "yuki";
-  inherit src;
-  
-  buildInputs = commonDeps;
-  
-  # Environment variables with settings
-  preBuild = ''
+mkYuki = { settings ? {} }: let
+  # Create a wrapper script that sets the environment variables
+  wrapper = pkgs.writeShellScriptBin "yuki" ''
     export YUKI_SYSTEM_PACKAGES_PATH="${settings.system_packages_path or "~/dotfiles/apps.nix"}"
     export YUKI_HOMEBREW_PACKAGES_PATH="${settings.homebrew_packages_path or "~/dotfiles/hosts/darwin/apps.nix"}"
     export YUKI_AUTO_COMMIT="${toString (settings.auto_commit or true)}"
@@ -126,8 +121,18 @@ mkYuki = { settings ? {} }: craneLib.buildPackage {
     export YUKI_INSTALL_COMMAND="${settings.install_command or "make"}"
     export YUKI_UNINSTALL_COMMAND="${settings.uninstall_command or "make"}"
     export YUKI_UPDATE_COMMAND="${settings.update_command or "make update"}"
+    
+    exec ${craneLib.buildPackage {
+      pname = "yuki";
+      inherit src;
+      buildInputs = commonDeps;
+      cargoArtifacts = craneLib.buildDepsOnly {
+        inherit src;
+        buildInputs = commonDeps;
+      };
+    }}/bin/yuki "$@"
   '';
-};
+in wrapper;
 
         # Default package with ability to override
         defaultYuki = pkgs.callPackage
