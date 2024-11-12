@@ -28,7 +28,7 @@
                 };
                 homebrew_packages_path = mkOption {
                   type = types.str;
-                  default = "~/..config/nix-darwin/configuration.nix";
+                  default = "~/.config/nix-darwin/configuration.nix";
                   description = "Path to Homebrew packages configuration";
                 };
                 auto_commit = mkOption {
@@ -72,18 +72,16 @@
           };
         };
 
-        config = mkIf config.programs.yuki.enable {
-          environment.systemPackages = let
-            system = pkgs.system;
-            settings = config.programs.yuki.settings;
-          in [
-            (pkgs.callPackage
-              ({ settings ? {} }: self.packages.${system}.default.override {
-                inherit settings;
-              })
-              { inherit settings; })
-          ];
-        };
+config = mkIf config.programs.yuki.enable {
+  environment.systemPackages = let
+    system = pkgs.system;
+    settings = config.programs.yuki.settings;
+  in [
+    (self.packages.${system}.default.override {
+      inherit settings;
+    })
+  ];
+};
       };
     in
     flake-utils.lib.eachDefaultSystem (system:
@@ -111,28 +109,25 @@
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
 
         # Create a function to build Yuki with specific settings
-        mkYuki = { settings ? {} }: craneLib.buildPackage {
-          pname = "yuki";
-          inherit src;
-          
-          buildInputs = commonDeps;
-          
-          # Environment variables with settings
-          YUKI_SYSTEM_PACKAGES_PATH = settings.system_packages_path or "~/dotfiles/apps.nix";
-          YUKI_HOMEBREW_PACKAGES_PATH = settings.homebrew_packages_path or "~/dotfiles/hosts/darwin/apps.nix";
-          YUKI_AUTO_COMMIT = toString (settings.auto_commit or true);
-          YUKI_AUTO_PUSH = toString (settings.auto_push or false);
-          YUKI_UNINSTALL_MESSAGE = settings.uninstall_message or "removed <package>";
-          YUKI_INSTALL_MESSAGE = settings.install_message or "installed <package>";
-          YUKI_INSTALL_COMMAND = settings.install_command or "make";
-          YUKI_UNINSTALL_COMMAND = settings.uninstall_command or "make";
-          YUKI_UPDATE_COMMAND = settings.update_command or "make update";
-          
-          cargoArtifacts = craneLib.buildDepsOnly {
-            inherit src;
-            buildInputs = commonDeps;
-          };
-        };
+mkYuki = { settings ? {} }: craneLib.buildPackage {
+  pname = "yuki";
+  inherit src;
+  
+  buildInputs = commonDeps;
+  
+  # Environment variables with settings
+  preBuild = ''
+    export YUKI_SYSTEM_PACKAGES_PATH="${settings.system_packages_path or "~/dotfiles/apps.nix"}"
+    export YUKI_HOMEBREW_PACKAGES_PATH="${settings.homebrew_packages_path or "~/dotfiles/hosts/darwin/apps.nix"}"
+    export YUKI_AUTO_COMMIT="${toString (settings.auto_commit or true)}"
+    export YUKI_AUTO_PUSH="${toString (settings.auto_push or false)}"
+    export YUKI_INSTALL_MESSAGE="${settings.install_message or "installed <package>"}"
+    export YUKI_UNINSTALL_MESSAGE="${settings.uninstall_message or "removed <package>"}"
+    export YUKI_INSTALL_COMMAND="${settings.install_command or "make"}"
+    export YUKI_UNINSTALL_COMMAND="${settings.uninstall_command or "make"}"
+    export YUKI_UPDATE_COMMAND="${settings.update_command or "make update"}"
+  '';
+};
 
         # Default package with ability to override
         defaultYuki = pkgs.callPackage

@@ -12,6 +12,7 @@ struct Cli {
     command: Commands,
 }
 
+
 #[derive(Subcommand)]
 enum Commands {
     /// Search for packages
