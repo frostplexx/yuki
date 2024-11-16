@@ -1,4 +1,5 @@
 # yuki
+
 A meta package manager for Nix and Homebrew, designed to help you manage your system packages declaratively across both Linux and macOS.
 Yuki aims to provide a more traditional interface for quickly installing, searching and updating packages while still integrating with your declarative config.
 
